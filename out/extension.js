@@ -77,7 +77,23 @@ function activate(context) {
         }
     }, '.' // triggered whenever a '.' is being typed
     );
-    context.subscriptions.push(provider1, provider2);
+    const provider3 = vscode.languages.registerDefinitionProvider('javascript', {
+        provideDefinition(document, position) {
+            // get all text until the `position` and check if it reads `console.`
+            // and if so then complete if `log`, `warn`, and `error`
+            const currentWord = document.getWordRangeAtPosition(position);
+            const wordStart = currentWord.start.character - 6;
+            const wordLenght = currentWord.end.character - wordStart;
+            let linePrefix = document.lineAt(position).text.substr(wordStart, wordLenght);
+            if (!linePrefix.startsWith('sails.helpers')) {
+                return undefined;
+            }
+            const sampleFile = vscode.Uri.file(helpersRoot + '/transfer/decide.js');
+            const sampleLocation = new vscode.Location(sampleFile, new vscode.Position(0, 0));
+            return sampleLocation;
+        }
+    });
+    context.subscriptions.push(provider1, provider2, provider3);
 }
 exports.activate = activate;
 //# sourceMappingURL=extension.js.map
