@@ -7,7 +7,8 @@ const vscode = require("vscode");
 const fs = require("fs");
 const projectRoot = vscode.workspace.rootPath;
 const helpersRoot = projectRoot + '/api/helpers';
-const helpersList = [];
+const helpersPathList = {};
+const helpersCompletionList = [];
 const toCamel = s => {
     return s.replace(/([-_][a-z])/gi, $1 => {
         return $1
@@ -22,12 +23,20 @@ fs.readdir(helpersRoot, (err, files) => {
             fs.readdir(helpersRoot + '/' + file, (err, subFiles) => {
                 subFiles.forEach(subFile => {
                     const helperName = file + '.' + subFile;
-                    helpersList.push(new vscode.CompletionItem(toCamel(helperName.split('.js')[0]), vscode.CompletionItemKind.Method));
+                    const fileName = helperName.split('.js')[0];
+                    const word = toCamel(fileName);
+                    const path = helpersRoot + '/' + file + '/' + subFile;
+                    helpersPathList[toCamel(subFile.split('.js')[0])] =
+                        {
+                            prefix: toCamel(file),
+                            path
+                        };
+                    helpersCompletionList.push(new vscode.CompletionItem(word, vscode.CompletionItemKind.Method));
                 });
             });
         }
         else {
-            helpersList.push(new vscode.CompletionItem(toCamel(file.split('.js')[0]), vscode.CompletionItemKind.Method));
+            helpersCompletionList.push(new vscode.CompletionItem(toCamel(file.split('.js')[0]), vscode.CompletionItemKind.Method));
         }
     });
 });
@@ -73,7 +82,7 @@ function activate(context) {
             if (!linePrefix.endsWith('sails.helpers.')) {
                 return undefined;
             }
-            return helpersList;
+            return helpersCompletionList;
         }
     }, '.' // triggered whenever a '.' is being typed
     );
@@ -82,13 +91,17 @@ function activate(context) {
             // get all text until the `position` and check if it reads `console.`
             // and if so then complete if `log`, `warn`, and `error`
             const currentWord = document.getWordRangeAtPosition(position);
-            const wordStart = currentWord.start.character - 6;
-            const wordLenght = currentWord.end.character - wordStart;
-            let linePrefix = document.lineAt(position).text.substr(wordStart, wordLenght);
+            const wordStart = currentWord.start.character;
+            const wordLength = currentWord.end.character - wordStart;
+            const word = document.lineAt(position).text.substr(wordStart, wordLength);
+            const helper = helpersPathList[word];
+            const prefixLength = 15 + helper.prefix.length;
+            const prefixStart = currentWord.start.character - prefixLength;
+            let linePrefix = document.lineAt(position).text.substr(prefixStart, prefixLength);
             if (!linePrefix.startsWith('sails.helpers')) {
                 return undefined;
             }
-            const sampleFile = vscode.Uri.file(helpersRoot + '/transfer/decide.js');
+            const sampleFile = vscode.Uri.file(helper.path);
             const sampleLocation = new vscode.Location(sampleFile, new vscode.Position(0, 0));
             return sampleLocation;
         }
